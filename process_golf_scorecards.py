@@ -93,14 +93,14 @@ def process_golf_scorecard(image_path):
     
     # Group elements into rows based on vertical position
     # Sort by vertical position first
-    elements.sorted_by_top = sorted(elements, key=lambda x: x['top'])
+    elements_sorted_by_top = sorted(elements, key=lambda x: x['top'])
     
     # Group into rows (elements with similar 'top' values)
     rows = []
-    current_row = [elements.sorted_by_top[0]]
+    current_row = [elements_sorted_by_top[0]]
     row_threshold = 15  # pixels tolerance for same row
     
-    for elem in elements.sorted_by_top[1:]:
+    for elem in elements_sorted_by_top[1:]:
         if abs(elem['top'] - current_row[0]['top']) < row_threshold:
             current_row.append(elem)
         else:
