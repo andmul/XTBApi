@@ -130,29 +130,33 @@ def process_golf_scorecard_improved(image_path):
                 conf = 0.9  # Default confidence
             else:
                 continue
-        except (IndexError, TypeError) as e:
+            
+            # Calculate center and bounds - also inside try block
+            # bbox should be a list of 4 points [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
+            if not bbox or len(bbox) < 4:
+                continue
+                
+            x_coords = [point[0] for point in bbox]
+            y_coords = [point[1] for point in bbox]
+            
+            x_min, x_max = min(x_coords), max(x_coords)
+            y_min, y_max = min(y_coords), max(y_coords)
+            x_center = (x_min + x_max) / 2
+            y_center = (y_min + y_max) / 2
+            
+            detections.append({
+                'text': text,
+                'x_min': x_min,
+                'x_max': x_max,
+                'y_min': y_min,
+                'y_max': y_max,
+                'x_center': x_center,
+                'y_center': y_center,
+                'conf': conf
+            })
+        except (IndexError, TypeError, KeyError) as e:
             print(f"Warning: Could not parse detection: {e}")
             continue
-        
-        # Calculate center and bounds
-        x_coords = [point[0] for point in bbox]
-        y_coords = [point[1] for point in bbox]
-        
-        x_min, x_max = min(x_coords), max(x_coords)
-        y_min, y_max = min(y_coords), max(y_coords)
-        x_center = (x_min + x_max) / 2
-        y_center = (y_min + y_max) / 2
-        
-        detections.append({
-            'text': text,
-            'x_min': x_min,
-            'x_max': x_max,
-            'y_min': y_min,
-            'y_max': y_max,
-            'x_center': x_center,
-            'y_center': y_center,
-            'conf': conf
-        })
     
     print(f"Detected {len(detections)} text elements")
     
