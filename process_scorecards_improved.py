@@ -102,11 +102,17 @@ def process_golf_scorecard_improved(image_path):
     
     # Initialize PaddleOCR
     # Note: use_angle_cls is deprecated in newer versions, use_textline_orientation is the new parameter
+    # show_log parameter may not be available in all versions
     try:
+        # Try with show_log parameter
         ocr = PaddleOCR(use_angle_cls=True, lang='en', show_log=False)
-    except:
-        # Fallback for newer versions
-        ocr = PaddleOCR(lang='en', show_log=False)
+    except TypeError:
+        try:
+            # Try without show_log parameter
+            ocr = PaddleOCR(use_angle_cls=True, lang='en')
+        except:
+            # Fallback for newest versions without deprecated parameters
+            ocr = PaddleOCR(lang='en')
     
     # Run OCR
     result = ocr.ocr(image_path, cls=True)
