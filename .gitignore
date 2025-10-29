@@ -29,4 +29,5 @@ real_golf_scorecards/
 golfsc/
 scorecard_dataframes/
 scorecard_dataframes_improved/
+scorecard_dataframes_easyocr/
 test_easyocr.py
