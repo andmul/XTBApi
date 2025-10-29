@@ -31,12 +31,12 @@ pip install pandas numpy opencv-python Pillow
 ### Quick Test (Process All Scorecards)
 
 ```bash
-# Make sure your scorecard images are in real_golf_scorecards/ directory
+# Make sure your scorecard images are in golfsc/ directory
 python process_scorecards_improved.py
 ```
 
 This will:
-1. Process all `*_scorecard_*.png` files in `real_golf_scorecards/`
+1. Process all `*_scorecard_*.png` files in `golfsc/`
 2. Show detected rows and columns for each image
 3. Save results as CSV files in `scorecard_dataframes_improved/`
 4. Automatically convert `--` to NaN
@@ -47,7 +47,7 @@ This will:
 ```python
 from process_scorecards_improved import process_golf_scorecard_improved
 
-df = process_golf_scorecard_improved('real_golf_scorecards/000_scorecard_490002648255_1_496637001254.png')
+df = process_golf_scorecard_improved('golfsc/000_scorecard_490002648255_1_496637001254.png')
 print(df)
 ```
 

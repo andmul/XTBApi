@@ -26,6 +26,7 @@ scorecards/
 golf_scorecards/
 golf_scorecards_demo/
 real_golf_scorecards/
+golfsc/
 scorecard_dataframes/
 scorecard_dataframes_improved/
 test_easyocr.py

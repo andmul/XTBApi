@@ -101,7 +101,12 @@ def process_golf_scorecard_improved(image_path):
         return pd.DataFrame()
     
     # Initialize PaddleOCR
-    ocr = PaddleOCR(use_angle_cls=True, lang='en', show_log=False)
+    # Note: use_angle_cls is deprecated in newer versions, use_textline_orientation is the new parameter
+    try:
+        ocr = PaddleOCR(use_angle_cls=True, lang='en', show_log=False)
+    except:
+        # Fallback for newer versions
+        ocr = PaddleOCR(lang='en', show_log=False)
     
     # Run OCR
     result = ocr.ocr(image_path, cls=True)
@@ -113,9 +118,21 @@ def process_golf_scorecard_improved(image_path):
     # Extract text with positions
     detections = []
     for line in result[0]:
-        bbox = line[0]
-        text = line[1][0]
-        conf = line[1][1]
+        try:
+            bbox = line[0]
+            # Handle both old and new API formats
+            if isinstance(line[1], tuple) and len(line[1]) >= 2:
+                text = line[1][0]
+                conf = line[1][1]
+            elif isinstance(line[1], str):
+                # Newer API format might return string directly
+                text = line[1]
+                conf = 0.9  # Default confidence
+            else:
+                continue
+        except (IndexError, TypeError) as e:
+            print(f"Warning: Could not parse detection: {e}")
+            continue
         
         # Calculate center and bounds
         x_coords = [point[0] for point in bbox]
@@ -213,7 +230,7 @@ def process_golf_scorecard_improved(image_path):
 
 
 def main():
-    """Process all golf scorecards in the real_golf_scorecards directory"""
+    """Process all golf scorecards in the golfsc directory"""
     print("=" * 70)
     print("IMPROVED GOLF SCORECARD OCR PROCESSOR (PaddleOCR)")
     print("=" * 70)
@@ -224,10 +241,10 @@ def main():
         return
     
     # Find scorecard images
-    scorecard_dir = "real_golf_scorecards"
+    scorecard_dir = "golfsc"
     if not os.path.exists(scorecard_dir):
         print(f"\nError: Directory '{scorecard_dir}' not found")
-        print("Please ensure golf scorecard images are in the 'real_golf_scorecards' directory")
+        print("Please ensure golf scorecard images are in the 'golfsc' directory")
         return
     
     pattern = os.path.join(scorecard_dir, "*_scorecard_*.png")
