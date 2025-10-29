@@ -115,7 +115,12 @@ def process_golf_scorecard_improved(image_path):
             ocr = PaddleOCR(lang='en')
     
     # Run OCR
-    result = ocr.ocr(image_path, cls=True)
+    # Note: cls parameter may not be supported in all versions
+    try:
+        result = ocr.ocr(image_path, cls=True)
+    except TypeError:
+        # Fallback without cls parameter for newer versions
+        result = ocr.ocr(image_path)
     
     if result is None or len(result) == 0 or result[0] is None:
         print("No text detected!")
