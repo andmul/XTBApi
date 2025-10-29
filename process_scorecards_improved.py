@@ -101,25 +101,21 @@ def process_golf_scorecard_improved(image_path):
         return pd.DataFrame()
     
     # Initialize PaddleOCR
-    # Note: use_angle_cls is deprecated in newer versions, use_textline_orientation is the new parameter
-    # show_log parameter may not be available in all versions
+    # For PaddleOCR 3.0+: use_textline_orientation instead of use_angle_cls
+    # ocr.predict() instead of ocr.ocr()
     try:
-        # Try with show_log parameter
-        ocr = PaddleOCR(use_angle_cls=True, lang='en', show_log=False)
-    except TypeError:
-        try:
-            # Try without show_log parameter
-            ocr = PaddleOCR(use_angle_cls=True, lang='en')
-        except:
-            # Fallback for newest versions without deprecated parameters
-            ocr = PaddleOCR(lang='en')
+        # Try newest API (PaddleOCR 3.0+)
+        ocr = PaddleOCR(lang='en')
+    except:
+        # Fallback for older versions
+        ocr = PaddleOCR(use_angle_cls=True, lang='en')
     
     # Run OCR
-    # Note: cls parameter may not be supported in all versions
+    # Use predict() for PaddleOCR 3.0+, ocr() is deprecated
     try:
-        result = ocr.ocr(image_path, cls=True)
-    except TypeError:
-        # Fallback without cls parameter for newer versions
+        result = ocr.predict(image_path)
+    except AttributeError:
+        # Fallback to ocr() for older versions
         result = ocr.ocr(image_path)
     
     if result is None or len(result) == 0 or result[0] is None:
