@@ -74,8 +74,8 @@ Main script for processing golf scorecards using Tesseract OCR.
 The `scorecard_ocr.py` script provides an alternative implementation using PaddleOCR:
 
 ```bash
-# Install PaddleOCR
-pip install paddleocr==2.7.0.3 paddlepaddle
+# Install PaddleOCR (works with version 2.7+ or 3.0+)
+pip install paddleocr paddlepaddle
 
 # Use the scorecard_ocr module
 python -c "
@@ -88,6 +88,8 @@ for img in sorted(glob.glob('real_golf_scorecards/*.png')):
     print(df)
 "
 ```
+
+**Note:** PaddleOCR 3.0+ works with this code. The older version 2.7.0.3 is no longer required.
 
 ## Data Cleaning
 

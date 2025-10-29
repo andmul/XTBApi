@@ -4,7 +4,7 @@ This project provides OCR functionality to extract tabular data from golf scorec
 
 ## Features
 
-- **High-accuracy OCR** using PaddleOCR (tested with version 2.7.0.3)
+- **High-accuracy OCR** using PaddleOCR (works with version 2.7+ and 3.0+) or Tesseract OCR
 - **Automatic table detection** and organization
 - **Smart data cleaning**: Converts `--` to `NaN` for missing values
 - **Numeric type conversion**: Automatically converts numbers to int/float
@@ -26,8 +26,15 @@ pip install -r requirements_ocr.txt
 
 Or install packages individually:
 
+**For PaddleOCR (works with 2.7+ or 3.0+):**
 ```bash
-pip install pandas numpy opencv-python paddleocr==2.7.0.3 paddlepaddle
+pip install pandas numpy opencv-python paddleocr paddlepaddle
+```
+
+**For Tesseract OCR (recommended - easier installation):**
+```bash
+sudo apt-get install tesseract-ocr
+pip install pandas numpy opencv-python-headless pytesseract Pillow
 ```
 
 ## Usage

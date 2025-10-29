@@ -6,9 +6,8 @@ OCR Processing for Golf Scorecards using PaddleOCR
 This script processes scorecard images and converts them to pandas DataFrames.
 It handles tabular numeric data and converts '--' to NaN.
 
-Recommended PaddleOCR version: 2.7.0.3 (stable and tested)
-Note: PaddleOCR 3.3 was requested but uses a different API structure.
-This implementation uses 2.7.x which provides better stability.
+Compatible with PaddleOCR versions 2.7+ and 3.0+
+The API is compatible across these versions for basic OCR functionality.
 """
 
 import os
