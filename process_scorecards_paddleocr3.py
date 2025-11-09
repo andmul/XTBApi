@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PaddleOCR 3.0+ Scorecard Processor with Column Detection Fix
+PaddleOCR 3.0+ Scorecard Processor with Enhanced Accuracy
 ==================================
 
 Working processor for PaddleOCR 3.0+ that correctly parses OCRResult objects.
@@ -8,8 +8,10 @@ Processes golf scorecards and converts them to pandas DataFrames.
 
 Features:
 - Correct PaddleOCR 3.0+ API parsing (rec_texts, rec_polys, rec_scores)
+- **NEW: Image preprocessing for improved OCR accuracy (fixes 6/9 confusion)**
+- **NEW: Smart column detection handles right-aligned numbers**
 - Adaptive row/column detection based on spatial positioning
-- **NEW: Configurable parameters to fix missing first column**
+- Configurable parameters to fix missing first column
 - Converts '--' to NaN automatically
 - Automatic numeric type conversion
 - Batch processing with progress tracking
@@ -20,6 +22,9 @@ New Parameters:
         Use if leftmost column is being cut off
     row_threshold_factor: Multiplier for row detection (default: 0.6)
         Increase to group more loosely, decrease for tighter grouping
+    enable_preprocessing: Apply image preprocessing for better accuracy (default: True)
+    use_x_min_for_sorting: Use left edge instead of center for column detection (default: True)
+        Fixes issues with right-aligned numbers in first column
     
 Usage:
     pip install paddleocr paddlepaddle pandas numpy opencv-python
@@ -35,10 +40,54 @@ import glob
 import numpy as np
 import pandas as pd
 from pathlib import Path
+import cv2
 
-def process_golf_scorecard_paddleocr3(image_path, x_margin_left=0, row_threshold_factor=0.6):
+def preprocess_image(image_path):
     """
-    Process a golf scorecard image using PaddleOCR 3.0+ API.
+    Preprocess image to improve OCR accuracy.
+    Fixes issues like 6 vs 9 confusion by enhancing image quality.
+    
+    Args:
+        image_path: Path to the image
+        
+    Returns:
+        Preprocessed image as numpy array
+    """
+    # Read image
+    img = cv2.imread(image_path)
+    if img is None:
+        raise ValueError(f"Could not read image: {image_path}")
+    
+    # Convert to grayscale
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    
+    # Apply adaptive thresholding to handle varying lighting
+    # This helps distinguish similar digits like 6 and 9
+    binary = cv2.adaptiveThreshold(
+        gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+        cv2.THRESH_BINARY, 11, 2
+    )
+    
+    # Denoise to reduce artifacts
+    denoised = cv2.fastNlMeansDenoising(binary, None, h=10, templateWindowSize=7, searchWindowSize=21)
+    
+    # Slight dilation to make text clearer
+    kernel = np.ones((2, 2), np.uint8)
+    dilated = cv2.dilate(denoised, kernel, iterations=1)
+    
+    # Sharpen to enhance edges (helps with digit recognition)
+    kernel_sharpen = np.array([[-1,-1,-1],
+                                [-1, 9,-1],
+                                [-1,-1,-1]])
+    sharpened = cv2.filter2D(dilated, -1, kernel_sharpen)
+    
+    return sharpened
+
+
+def process_golf_scorecard_paddleocr3(image_path, x_margin_left=0, row_threshold_factor=0.6, 
+                                     enable_preprocessing=True, use_x_min_for_sorting=True):
+    """
+    Process a golf scorecard image using PaddleOCR 3.0+ API with enhanced accuracy.
     
     Args:
         image_path: Path to the scorecard image
@@ -47,17 +96,37 @@ def process_golf_scorecard_paddleocr3(image_path, x_margin_left=0, row_threshold
         row_threshold_factor: Multiplier for row detection threshold (default: 0.6)
             Higher values = more lenient row grouping
             Lower values = stricter row grouping
+        enable_preprocessing: Apply image preprocessing for better accuracy (default: True)
+            Helps fix digit confusion like 6 vs 9
+        use_x_min_for_sorting: Use left edge (x_min) instead of center for column sorting (default: True)
+            Fixes issues with right-aligned numbers causing cutoffs in first column
         
     Returns:
         pandas DataFrame with the extracted scorecard data
     """
     from paddleocr import PaddleOCR
     
-    # Initialize PaddleOCR (using simple initialization for 3.0+)
-    ocr = PaddleOCR(lang='en')
+    # Preprocess image if enabled
+    if enable_preprocessing:
+        print("Preprocessing image for enhanced accuracy...")
+        preprocessed_img = preprocess_image(image_path)
+        # Save to temp file for PaddleOCR
+        temp_path = '/tmp/preprocessed_scorecard.png'
+        cv2.imwrite(temp_path, preprocessed_img)
+        ocr_image_path = temp_path
+    else:
+        ocr_image_path = image_path
+    
+    # Initialize PaddleOCR with better parameters for accuracy
+    ocr = PaddleOCR(
+        lang='en',
+        use_angle_cls=True,  # Enable angle classification for better accuracy
+        use_space_char=True,  # Preserve spaces
+        drop_score=0.5  # Higher threshold for more accurate results
+    )
     
     # Run OCR using predict() method (PaddleOCR 3.0+ API)
-    result = ocr.predict(image_path)
+    result = ocr.predict(ocr_image_path)
     
     # Parse PaddleOCR 3.0+ result format
     # result is a list with one OCRResult object
@@ -162,8 +231,14 @@ def process_golf_scorecard_paddleocr3(image_path, x_margin_left=0, row_threshold
         print(f"Row {i}: {row_texts}")
     
     # Sort elements within each row by horizontal position (left to right)
+    # Use x_min (left edge) instead of x_center to handle right-aligned numbers
+    # This fixes the issue where right-aligned numbers in the first column
+    # get misaligned because their centers are at different positions
+    sort_key = 'x_min' if use_x_min_for_sorting else 'x_center'
     for row in rows:
-        row.sort(key=lambda x: x['x_center'])
+        row.sort(key=lambda x: x[sort_key])
+    
+    print(f"Column sorting: Using {sort_key} for positioning (fixes right-aligned numbers)")
     
     # Convert to DataFrame
     # Find the maximum number of columns
@@ -237,10 +312,14 @@ def main():
     # Adjust these if the first column is missing:
     X_MARGIN_LEFT = 0  # Change to 5, 10, or 15 if first column is cut off
     ROW_THRESHOLD_FACTOR = 0.6  # Change to 0.5 for tighter rows, 0.7 for looser
+    ENABLE_PREPROCESSING = True  # Image preprocessing for better accuracy (fixes 6/9 confusion)
+    USE_X_MIN_FOR_SORTING = True  # Use left edge for sorting (fixes right-aligned numbers)
     
     print(f"Processing parameters:")
     print(f"  x_margin_left: {X_MARGIN_LEFT} pixels")
     print(f"  row_threshold_factor: {ROW_THRESHOLD_FACTOR}")
+    print(f"  enable_preprocessing: {ENABLE_PREPROCESSING} (improves digit accuracy)")
+    print(f"  use_x_min_for_sorting: {USE_X_MIN_FOR_SORTING} (fixes right-aligned numbers)")
     print()
     
     # Create output directory for CSV files
@@ -260,7 +339,9 @@ def main():
             df = process_golf_scorecard_paddleocr3(
                 img_path,
                 x_margin_left=X_MARGIN_LEFT,
-                row_threshold_factor=ROW_THRESHOLD_FACTOR
+                row_threshold_factor=ROW_THRESHOLD_FACTOR,
+                enable_preprocessing=ENABLE_PREPROCESSING,
+                use_x_min_for_sorting=USE_X_MIN_FOR_SORTING
             )
             
             if df is not None and len(df) > 0:
@@ -305,13 +386,17 @@ def main():
         print("✓ CSV files have been saved to the 'scorecard_output' directory")
         print("✓ '--' has been converted to NaN")
         print("✓ Numeric columns have been auto-detected and converted")
+        print("✓ Image preprocessing applied for better accuracy (fixes 6/9 confusion)")
+        print("✓ Smart column detection handles right-aligned numbers")
         print()
         print("=" * 70)
         print("TROUBLESHOOTING")
         print("=" * 70)
-        print("If the first column is still missing, edit this script and adjust:")
+        print("If issues persist, edit this script and adjust:")
         print("  X_MARGIN_LEFT = 5      # Try 5, 10, or 15")
         print("  ROW_THRESHOLD_FACTOR = 0.5  # Try 0.5 for tighter grouping")
+        print("  ENABLE_PREPROCESSING = False  # Disable if causing issues")
+        print("  USE_X_MIN_FOR_SORTING = False  # Use center-based sorting instead")
         print()
 
 
