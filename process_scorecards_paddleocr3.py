@@ -125,25 +125,21 @@ def process_golf_scorecard_paddleocr3(image_path, x_margin_left=0, row_threshold
         drop_score=0.5  # Higher threshold for more accurate results
     )
     
-    # Run OCR using predict() method (PaddleOCR 3.0+ API)
-    result = ocr.predict(ocr_image_path)
+    # Run OCR - try predict() for newer API, fallback to ocr() for older versions
+    try:
+        result = ocr.predict(ocr_image_path)
+    except AttributeError:
+        result = ocr.ocr(ocr_image_path)
     
-    # Parse PaddleOCR 3.0+ result format
-    # result is a list with one OCRResult object
-    if not result or len(result) == 0:
+    # Parse PaddleOCR result format
+    # result is a list with detections in format: [[bbox, (text, confidence)], ...]
+    if not result or len(result) == 0 or result[0] is None:
         print("No text detected!")
         return None
     
-    ocr_result = result[0]
+    print(f"Detected {len(result[0])} text elements")
     
-    # Access the OCRResult attributes
-    texts = ocr_result.rec_texts  # List of recognized text strings
-    polys = ocr_result.rec_polys  # List of bounding box polygons (numpy arrays)
-    scores = ocr_result.rec_scores  # List of confidence scores
-    
-    print(f"Detected {len(texts)} text elements")
-    
-    if len(texts) == 0:
+    if len(result[0]) == 0:
         print("No text detected!")
         return None
     
@@ -151,12 +147,27 @@ def process_golf_scorecard_paddleocr3(image_path, x_margin_left=0, row_threshold
     elements = []
     min_x_found = float('inf')
     
-    for i, (text, poly, score) in enumerate(zip(texts, polys, scores)):
+    for i, detection in enumerate(result[0]):
         try:
-            # poly is a numpy array with shape (4, 2) containing 4 corner points
-            # Calculate center position and bounds
-            x_coords = poly[:, 0]
-            y_coords = poly[:, 1]
+            bbox = detection[0]
+            text_info = detection[1]
+            
+            # Handle both tuple and string formats
+            if isinstance(text_info, tuple) and len(text_info) >= 2:
+                text = text_info[0]
+                score = text_info[1]
+            elif isinstance(text_info, str):
+                text = text_info
+                score = 0.9  # Default confidence
+            else:
+                continue
+            
+            # bbox is a list of 4 points [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
+            if not bbox or len(bbox) < 4:
+                continue
+            
+            x_coords = [point[0] for point in bbox]
+            y_coords = [point[1] for point in bbox]
             
             x_center = float(np.mean(x_coords))
             y_center = float(np.mean(y_coords))
@@ -185,7 +196,7 @@ def process_golf_scorecard_paddleocr3(image_path, x_margin_left=0, row_threshold
                 'height': height,
                 'score': score
             })
-        except Exception as e:
+        except (IndexError, TypeError, KeyError) as e:
             print(f"Warning: Could not parse element {i}: {e}")
             continue
     
